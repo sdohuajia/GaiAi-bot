@@ -1,0 +1,6 @@
+# 这是一个示例代理文件（可选）
+# 请在下面每行放置一个代理地址
+# 支持的格式：
+# http://username:password@proxy.com:8080
+# socks5://username:password@proxy.com:1080
+# 如果不使用代理，可以留空或删除此文件
