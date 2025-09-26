@@ -31,6 +31,54 @@ else
   echo "[信息] 依赖已存在，跳过安装"
 fi
 
+# Ensure pk.txt and proxy.txt content
+has_nonempty_lines() {
+  # returns 0 if file has non-empty, non-comment lines; else 1
+  [ -f "$1" ] && grep -E "^\s*[^#\s]" "$1" >/dev/null 2>&1
+}
+
+prompt_multiline_to_file() {
+  local target_file="$1"
+  local prompt_msg="$2"
+  echo "$prompt_msg"
+  echo "(逐行输入，每行一个，按 Ctrl+D 结束)"
+  : > "$target_file"
+  while IFS= read -r line; do
+    echo "$line" >> "$target_file"
+  done
+  echo "[信息] 已写入: $target_file"
+}
+
+ensure_pk_file() {
+  if [ -f pk_encrypted.txt ]; then
+    echo "[提示] 检测到 pk_encrypted.txt，跳过明文私钥输入。"
+    return 0
+  fi
+  if has_nonempty_lines pk.txt; then
+    echo "[信息] 检测到有效 pk.txt，跳过输入。"
+    return 0
+  fi
+  echo "\n[必填] 未检测到有效私钥文件。"
+  prompt_multiline_to_file pk.txt "请粘贴私钥(不含0x)，每行一个："
+}
+
+ensure_proxy_file() {
+  echo "\n[可选] 是否填写代理列表? (y/n) [n]: "
+  read -r fill_proxy
+  fill_proxy=${fill_proxy:-n}
+  case "$fill_proxy" in
+    y|Y)
+      prompt_multiline_to_file proxy.txt "请输入代理(支持 http:// 或 socks5://)，每行一个："
+      ;;
+    *)
+      echo "[信息] 跳过代理填写。"
+      ;;
+  esac
+}
+
+ensure_pk_file
+ensure_proxy_file
+
 # Determine run mode
 # Supported values: start | encrypt-and-start | encrypt-only
 RUN_MODE_ENV=${RUN_MODE:-}
