@@ -49,6 +49,24 @@ npm install
 npm start
 ```
 
+### 3. 一键脚本（推荐）
+提供 `run.sh` 一键脚本，首次运行会自动安装依赖，并提供以下选项：
+
+```bash
+# 交互式运行（会询问选择）
+bash run.sh
+
+# 非交互运行（通过环境变量指定模式）
+RUN_MODE=start bash run.sh              # 直接运行
+RUN_MODE=encrypt-and-start bash run.sh  # 先加密再运行
+RUN_MODE=encrypt-only bash run.sh       # 仅加密
+```
+
+说明：
+- 脚本会自动检测 `node`/`npm` 是否可用；首次运行会执行 `npm ci` 或 `npm install`。
+- 加密流程使用现有命令 `npm run encrypt`（对应 `encrypt-pk.js`）。
+- 在 Windows 上可用 WSL 或 Git Bash 执行上述命令。
+
 ### 3. 配置选项
 程序启动后会询问：
 - 是否使用代理服务器
@@ -79,7 +97,6 @@ node decrypt-pk.js
 - 🗑️ **安全删除**：加密完成后自动删除原始私钥文件
 - 🔄 **无缝集成**：机器人自动检测加密文件并提示输入密码
 
-详细使用说明请参考 [ENCRYPTION_GUIDE.md](./ENCRYPTION_GUIDE.md)
 
 ## ⚠️ 安全说明
 
