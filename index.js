@@ -199,20 +199,27 @@ async function readPrivateKeys() {
     
     // 检查是否存在加密文件
     if (await encryptor.hasEncryptedFile()) {
-      logger.info('检测到加密私钥文件，需要输入密码解密', { emoji: '🔐 ' });
+      // 优先使用环境变量中的密码
+      let password = process.env.DECRYPT_PASSWORD;
       
-      // 获取解密密码
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-      });
+      if (!password) {
+        logger.info('检测到加密私钥文件，需要输入密码解密', { emoji: '🔐 ' });
+        
+        // 获取解密密码
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout
+        });
+        
+        password = await new Promise(resolve => {
+          rl.question('请输入私钥解密密码: ', resolve);
+        });
+        rl.close();
+      } else {
+        logger.info('使用预设的解密密码', { emoji: '🔐 ' });
+      }
       
-      const password = await new Promise(resolve => {
-        rl.question('请输入私钥解密密码: ', resolve);
-      });
-      rl.close();
-      
-      if (!password.trim()) {
+      if (!password || !password.trim()) {
         logger.error('密码不能为空', { emoji: '❌ ' });
         return [];
       }
