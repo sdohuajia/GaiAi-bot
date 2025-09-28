@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Move to script directory (project root)
+# 定义常量
+REPO_URL="https://github.com/sdohuajia/GaiAi-bot.git"
+REPO_DIR="GaiAi-bot"
+
+# 移动到脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
@@ -9,7 +13,13 @@ echo "========================================"
 echo " GAIAI 自动日常机器人 - 一键运行脚本"
 echo "========================================"
 
-# Check Node & npm
+# 检查 Git 是否安装
+if ! command -v git >/dev/null 2>&1; then
+  echo "[错误] 未检测到 git，请先安装 Git"
+  exit 1
+fi
+
+# 检查 Node.js 和 npm 是否安装
 if ! command -v node >/dev/null 2>&1; then
   echo "[错误] 未检测到 node，请先安装 Node.js"
   exit 1
@@ -19,24 +29,47 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
-# Install dependencies if needed
+# 拉取或更新 GitHub 仓库
+if [ -d "$REPO_DIR" ]; then
+  echo "[信息] 仓库 $REPO_DIR 已存在，尝试更新..."
+  cd "$REPO_DIR"
+  git pull origin main || {
+    echo "[错误] 无法更新仓库，请检查网络或仓库状态"
+    exit 1
+  }
+else
+  echo "[信息] 克隆仓库 $REPO_URL..."
+  git clone "$REPO_URL" "$REPO_DIR" || {
+    echo "[错误] 克隆仓库失败，请检查网络或仓库地址"
+    exit 1
+  }
+  cd "$REPO_DIR"
+fi
+
+# 安装依赖
 if [ ! -d node_modules ]; then
   echo "[信息] 未发现 node_modules，正在安装依赖..."
   if [ -f package-lock.json ]; then
-    npm ci
+    npm ci || {
+      echo "[错误] npm ci 安装依赖失败"
+      exit 1
+    }
   else
-    npm install
-  fi
+    npm install || {
+      echo "[错误] npm install 安装依赖失败"
+      exit 1
+    }
+  }
 else
   echo "[信息] 依赖已存在，跳过安装"
 fi
 
-# Ensure pk.txt and proxy.txt content
+# 检查文件是否包含非空、非注释行
 has_nonempty_lines() {
-  # returns 0 if file has non-empty, non-comment lines; else 1
   [ -f "$1" ] && grep -E "^\s*[^#\s]" "$1" >/dev/null 2>&1
 }
 
+# 提示用户输入多行内容到文件
 prompt_multiline_to_file() {
   local target_file="$1"
   local prompt_msg="$2"
@@ -49,6 +82,7 @@ prompt_multiline_to_file() {
   echo "[信息] 已写入: $target_file"
 }
 
+# 确保私钥文件存在
 ensure_pk_file() {
   if [ -f pk_encrypted.txt ]; then
     echo "[提示] 检测到 pk_encrypted.txt，跳过明文私钥输入。"
@@ -62,6 +96,7 @@ ensure_pk_file() {
   prompt_multiline_to_file pk.txt "请粘贴私钥(不含0x)，每行一个："
 }
 
+# 确保代理文件（可选）
 ensure_proxy_file() {
   echo "\n[可选] 是否填写代理列表? (y/n) [n]: "
   read -r fill_proxy
@@ -76,13 +111,11 @@ ensure_proxy_file() {
   esac
 }
 
+# 确保私钥和代理文件
 ensure_pk_file
 ensure_proxy_file
 
-# Determine run mode
-# Supported values: start | encrypt-and-start | encrypt-only
-RUN_MODE_ENV=${RUN_MODE:-}
-
+# 选择运行模式
 choose_mode() {
   echo "\n请选择操作:"
   echo "  1) 直接运行 (npm start)"
@@ -98,6 +131,8 @@ choose_mode() {
   esac
 }
 
+# 检查 RUN_MODE 环境变量
+RUN_MODE_ENV=${RUN_MODE:-}
 if [ -z "$RUN_MODE_ENV" ]; then
   RUN_MODE=$(choose_mode)
 else
@@ -105,12 +140,7 @@ else
   echo "[信息] 检测到环境变量 RUN_MODE=$RUN_MODE"
 fi
 
-# Optional: quick hints
-echo "[信息] 可通过设置 RUN_MODE 环境变量跳过交互:"
-echo "       RUN_MODE=start            # 直接运行"
-echo "       RUN_MODE=encrypt-and-start  # 加密后运行"
-echo "       RUN_MODE=encrypt-only     # 仅加密"
-
+# 运行加密
 run_encrypt() {
   if [ -f pk_encrypted.txt ]; then
     echo "[提示] 已检测到 pk_encrypted.txt，如需重新加密可继续..."
@@ -118,22 +148,32 @@ run_encrypt() {
   if [ ! -f pk.txt ] && [ ! -f pk_encrypted.txt ]; then
     echo "[警告] 未发现 pk.txt 或 pk_encrypted.txt，可能无法加密或运行。"
   fi
-  npm run encrypt
+  npm run encrypt || {
+    echo "[错误] npm run encrypt 执行失败"
+    exit 1
+  }
 }
 
+# 根据运行模式执行
 case "$RUN_MODE" in
   encrypt-and-start)
     run_encrypt
     echo "\n[信息] 启动机器人..."
-    npm start
+    npm start || {
+      echo "[错误] npm start 执行失败"
+      exit 1
+    }
     ;;
   encrypt-only)
     run_encrypt
     ;;
   start|*)
     echo "\n[信息] 启动机器人..."
-    npm start
+    npm start || {
+      echo "[错误] npm start 执行失败"
+      exit 1
+    }
     ;;
 esac
 
-
+echo "[信息] 脚本执行完成！"
