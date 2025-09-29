@@ -193,8 +193,17 @@ async function requestWithRetry(method, url, payload = null, config = {}, retrie
 
 const BASE_URL = 'https://api.metagaia.io';
 
+// 内存缓存：避免每次循环再次解密或读取文件
+let cachedPrivateKeys = null;
+
 async function readPrivateKeys() {
   try {
+    // 优先使用内存缓存（进程存活期间仅需解密/读取一次）
+    if (Array.isArray(cachedPrivateKeys) && cachedPrivateKeys.length > 0) {
+      logger.info('使用内存缓存的私钥', { emoji: '🧠 ' });
+      return cachedPrivateKeys;
+    }
+
     const encryptor = new AccountEncryptor();
     
     // 检查是否存在加密文件
@@ -227,7 +236,8 @@ async function readPrivateKeys() {
       const decryptedKeys = await encryptor.decryptPrivateKeys(password);
       if (decryptedKeys) {
         logger.info(`已解密并加载 ${decryptedKeys.length} 个私钥`, { emoji: '🔓 ' });
-        return decryptedKeys;
+        cachedPrivateKeys = decryptedKeys;
+        return cachedPrivateKeys;
       } else {
         logger.error('解密私钥失败', { emoji: '❌ ' });
         return [];
@@ -237,7 +247,8 @@ async function readPrivateKeys() {
       const data = await fs.readFile('pk.txt', 'utf-8');
       const pks = data.split('\n').map(line => line.trim()).filter(line => line.length > 0 && !line.startsWith('#'));
       logger.info(`已加载 ${pks.length} 个私钥`, { emoji: '📄 ' });
-      return pks;
+      cachedPrivateKeys = pks;
+      return cachedPrivateKeys;
     }
   } catch (error) {
     logger.error(`读取私钥失败: ${error.message}`, { emoji: '❌ ' });
